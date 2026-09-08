@@ -1,0 +1,11 @@
+{
+  "name": "create-wallpaper",
+  "description": "Localize a phone screenshot into 8 languages (ko ja zh-TW ms en-US en-GB fr vi) and composite each into a photo of a phone in perspective. Geometric compositing only — no image generation. macOS only.",
+  "version": "1.0.0",
+  "author": {
+    "name": "seongji-code"
+  },
+  "repository": "https://github.com/seongji-code/seongji-plugins",
+  "license": "MIT",
+  "keywords": ["mockup", "localization", "i18n", "screenshot", "compositing", "marketing", "macos"]
+}
