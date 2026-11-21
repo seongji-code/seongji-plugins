@@ -66,6 +66,19 @@ def main():
             print(f'{NG} {pip}   →  python3 -m pip install {pip}')
             bad.append(pip)
 
+    head('OpenType 기능 (retext.py 의 고정폭 숫자) — 없어도 돌아간다')
+    try:
+        from PIL import features as _pf
+        if _pf.check('raqm'):
+            print(f'{OK} libraqm')
+        else:
+            print('  ⚠️ libraqm 없음 — retext.py 가 tnum(고정폭 숫자)을 못 쓴다.')
+            print('      달력·시계 숫자를 고칠 때 1 이 낀 숫자만 폭이 어긋날 수 있다.')
+            print('      고치려면:  brew install libraqm  후  python3 -m pip install'
+                  ' --force-reinstall --no-binary :all: Pillow')
+    except ImportError:
+        pass                              # Pillow 자체가 없으면 위에서 이미 걸렸다
+
     head('날짜 표기 검증 (CLDR)')
     if shutil.which('swift'):
         print(f'{OK} swift')
