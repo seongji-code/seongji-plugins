@@ -324,8 +324,12 @@ def cmd_fit(a):
     featsets = [None]
     if a.features:
         featsets = [tuple(f.strip() for f in a.features.split(',') if f.strip())]
-    elif HAS_RAQM and any(c.isdigit() for c in a.text):
-        featsets.append(('tnum',))
+    elif any(c.isdigit() for c in a.text):
+        if HAS_RAQM:
+            featsets.append(('tnum',))
+        else:
+            print('⚠️  libraqm 이 없어 고정폭 숫자(tnum)를 시험하지 못한다.'
+                  " 1 이 낀 숫자만 폭이 어긋날 수 있다.")
 
     def search(htol):
         """잉크 높이가 원본과 htol px 이내인 크기만 보고 최적 설정을 찾는다."""
