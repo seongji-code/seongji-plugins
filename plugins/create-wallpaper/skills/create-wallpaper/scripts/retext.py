@@ -22,6 +22,14 @@ fit 이 이 도구의 핵심이다. 원본이 어떤 폰트로 몇 px 에 그려
       --fonts apple-latin --out _작업/fit_18.json
   python3 retext.py apply 사진.png --plan _작업/plan.json --out 결과.png
 
+밝은 배경 위 어두운 글자도 된다. scan 은 `--dark`, fit 은 `--bg`/`--fg` 를 직접 준다.
+
+안 되는 경우 — **글자 뒤가 사진 질감이면 쓰지 마라.** 지운 자리를 복원할 수 없어서
+뭉갠 자국이 남고, 배경이 글자만큼 어두운 곳이 있으면 fit 의 잉크 높이 측정도 망가진다.
+(2026-11-23 건: 그래놀라·나무결 위 글자. 복원 오차 상위5% 가 43~50 이었다)
+글자 뒤가 매끈한 면이나 완만한 그라데이션일 때 쓰는 도구다. 질감 위라면 앱에서 문구를
+고쳐 다시 캡처하는 쪽이 맞다.
+
 주의
   - fit 이 내놓는 오차 숫자만 믿지 않는다. 같이 나오는 `*_대조.png` 를 **직접 보고**
     획 굵기와 밝기가 원본과 같은지 확인한다.
@@ -234,12 +242,17 @@ def cmd_scan(a):
     g = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(float)
     sub = g[y0:y1 + 1, x0:x1 + 1]
     # 자동 임계값: 배경(중앙값)과 글자(상위 0.5%) 사이. 상위값만 쓰면 획이 쪼개진다.
-    lo, hi = float(np.median(sub)), float(np.percentile(sub, 99.5))
+    if a.dark:                       # 밝은 배경 위 어두운 글자
+        lo, hi = float(np.median(sub)), float(np.percentile(sub, 0.5))
+    else:                            # 어두운 배경 위 밝은 글자 (기본)
+        lo, hi = float(np.median(sub)), float(np.percentile(sub, 99.5))
     thr = a.thr if a.thr else lo + 0.35 * (hi - lo)
     print(f'이미지 {W} x {H}   영역 x {x0}..{x1}  y {y0}..{y1}'
-          f'   배경 {lo:.0f} 글자 {hi:.0f} → 임계값 {thr:.0f}')
+          f'   배경 {lo:.0f} 글자 {hi:.0f} → 임계값 {thr:.0f}'
+          f"  ({'어두운' if a.dark else '밝은'} 글자)")
+    hit = (lambda v: v < thr) if a.dark else (lambda v: v > thr)
 
-    rows = (sub > thr).sum(1)
+    rows = hit(sub).sum(1)
     segs, s = [], None
     for i, v in enumerate(rows):
         if v and s is None:
@@ -253,7 +266,7 @@ def cmd_scan(a):
     print(f'\n글자 줄 {len(segs)}개')
     for k, (ya, yb) in enumerate(segs):
         band = g[ya:yb + 1, x0:x1 + 1]
-        cols = (band > thr).sum(0)
+        cols = hit(band).sum(0)
         gs, st = [], None
         for i, v in enumerate(cols):
             if v and st is None:
@@ -308,12 +321,14 @@ def cmd_fit(a):
     # 가장자리까지 재면 크기 추정이 어긋나고, 최적화가 '글자를 줄이고 농도를 올리는' 쪽으로 샌다.
     INK_THR = 0.12
     lvl = float(bg.mean() + INK_THR * (fg.mean() - bg.mean()))
-    ys, xs = np.where(tgt.mean(2) > lvl)
+    dark_text = fg.mean() < bg.mean()        # 밝은 패널 위 검은 글자인 경우
+    ys, xs = np.where(tgt.mean(2) < lvl if dark_text else tgt.mean(2) > lvl)
     if not len(ys):
         sys.exit('상자 안에서 글자를 못 찾았다. --box 를 다시 잡아라')
     ink_h = float(ys.max() - ys.min() + 1)
     ink_l, ink_t = x0 + xs.min(), y0 + ys.min()
-    print(f'원본 잉크: 높이 {ink_h:.0f}px  왼쪽 x={ink_l}  윗변 y={ink_t}  (밝기 {lvl:.0f} 이상)')
+    print(f'원본 잉크: 높이 {ink_h:.0f}px  왼쪽 x={ink_l}  윗변 y={ink_t}'
+          f"  (밝기 {lvl:.0f} {'이하' if dark_text else '이상'})")
 
     def err(spec, size, blur, gain, penx, peny, feats):
         al = glyph_alpha(a.text, spec, size, Ww, Hh, penx, peny, blur, gain, feats)[..., None]
@@ -459,6 +474,7 @@ def main():
     p.add_argument('src')
     p.add_argument('--region', help='x0,y0,x1,y1 (생략하면 전체)')
     p.add_argument('--thr', type=float, default=0, help='밝기 임계값 (0=자동)')
+    p.add_argument('--dark', action='store_true', help='밝은 배경 위 어두운 글자를 찾는다')
     p.add_argument('--gap', type=int, default=4, help='한 덩어리로 묶을 가로 간격 (한자 획이 쪼개지면 올린다)')
     p.add_argument('--minh', type=int, default=4, help='줄로 칠 최소 높이')
     p.set_defaults(fn=cmd_scan)
